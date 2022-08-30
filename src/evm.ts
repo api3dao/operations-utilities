@@ -2,7 +2,7 @@ import { parseUnits } from "ethers/lib/utils";
 import { OperationsRepository } from "@api3/operations";
 import { readOperationsRepository } from "@api3/operations/dist/utils/read-operations";
 import { EthValue } from "./types";
-import { sendToOpsGenieLowLevel } from "./opsgenie";
+import { log } from "./logging";
 
 export const doTimeout = (interval: number) =>
   new Promise((resolve) => setTimeout(() => resolve(null), interval));
@@ -32,8 +32,7 @@ export const resolveChainName = async (
     return chainName;
   }
 
-  await sendToOpsGenieLowLevel({
-    message: "Invalid or unknown chain",
+  log("Invalid or unknown chain", "INFO", {
     alias: "invalid-chain-id-resolveChainName",
     description: `Please check the config and/or resolveChainName function: ${chainId}`,
     priority: "P2",

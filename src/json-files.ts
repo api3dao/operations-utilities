@@ -2,6 +2,10 @@ import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { keyBy } from "lodash";
 
+interface FilePayload {
+  readonly filename: string;
+}
+
 export const readJsonFile = (filePath: string) =>
   JSON.parse(readFileSync(filePath).toString("utf8"));
 
@@ -12,10 +16,6 @@ export const readJsonDirectoryAsArray = (
     ...readJsonFile(join(directoryPath, filename)),
     filename,
   }));
-
-interface FilePayload {
-  readonly filename: string;
-}
 
 export const readJsonDirectoryAsObject = (
   directoryPath: string

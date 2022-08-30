@@ -109,11 +109,14 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
     openAlertsCached = AlertsCachingStatus.DONE;
 
     const typedError = e as Error;
-    await sendToOpsGenieLowLevel({
-      message: `Unable to cache open OpsGenie Alerts: ${typedError.message}`,
-      alias: "opsgenie-open-alerts-cache-failure",
-      description: typedError.stack,
-    });
+    await sendToOpsGenieLowLevel(
+      {
+        message: `Unable to cache open OpsGenie Alerts: ${typedError.message}`,
+        alias: "opsgenie-open-alerts-cache-failure",
+        description: typedError.stack,
+      },
+      opsGenieConfig
+    );
   }
 };
 
@@ -268,10 +271,10 @@ export const closeOpsGenieAlertWithAlias = async (
 
 export const sendToOpsGenieLowLevel = async (
   message: OpsGenieMessage,
-  opsGenieConfig?: OpsGenieConfig
+  opsGenieConfig: OpsGenieConfig
 ) => {
   log(message.message, "INFO", message);
-  if (!opsGenieConfig || checkForOpsGenieApiKey()) {
+  if (checkForOpsGenieApiKey()) {
     return;
   }
   const url = "https://api.opsgenie.com/v2/alerts";
@@ -381,7 +384,7 @@ export const sendToOpsGenie = async (
     log(`ops genie payload`, "INFO", potentialAlarmPayload);
   }
 
-  await sendToOpsGenieLowLevel(potentialAlarmPayload);
+  await sendToOpsGenieLowLevel(potentialAlarmPayload, opsGenieConfig);
 };
 
 const prettyPrintPercentage = (percentage: BigNumber) => {
@@ -550,11 +553,14 @@ export const evaluateThreshold = async (
     }
   } catch (e) {
     // We won't wait for the promise to resolve
-    await sendToOpsGenieLowLevel({
-      message: `Error in metric evaluation function`,
-      alias: "metric-evaluation-error",
-      description: JSON.stringify(e, null, 2),
-      priority: "P2",
-    });
+    await sendToOpsGenieLowLevel(
+      {
+        message: `Error in metric evaluation function`,
+        alias: "metric-evaluation-error",
+        description: JSON.stringify(e, null, 2),
+        priority: "P2",
+      },
+      opsGenieConfig
+    );
   }
 };
