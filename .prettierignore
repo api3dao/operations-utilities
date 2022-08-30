@@ -1,7 +1,0 @@
-/node_modules
-/dist
-/.serverless
-/.build
-/exports
-/coverage
-/config
