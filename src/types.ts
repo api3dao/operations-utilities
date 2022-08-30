@@ -40,18 +40,6 @@ export type GlobalSponsor = {
   sponsor: NonceManager;
 } & TelemetryChainConfig;
 
-// As per https://docs.opsgenie.com/docs/alert-api
-export interface OpsGenieResponder {
-  type: "team" | "user" | "escalation" | "schedule";
-  name?: string;
-  id?: string;
-}
-
-export interface OpsGenieConfig {
-  apiKey: string;
-  responders: OpsGenieResponder[];
-}
-
 export declare type OpsGeniePriority = "P1" | "P2" | "P3" | "P4" | "P5";
 
 export interface OpsGenieMessage {

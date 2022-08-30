@@ -10,10 +10,9 @@ import {
   OutputMetric,
   OpsGenieConfig,
 } from "./types";
-import { log, logTrace } from "./logging";
-import { debugLog } from "./logging";
+import { log, logTrace, debugLog } from "./logging";
 import { go } from "./promises";
-import {doTimeout, resolveChainName} from "./evm";
+import { doTimeout, resolveChainName } from "./evm";
 
 /**
  * We cache open OpsGenie alerts to reduce API calls to not hit API limits prematurely.
@@ -214,8 +213,7 @@ export const getOpenAlertsForAlias = async (
   params.set("query", `status: open AND alias: ${alias}`);
 
   const url = `https://api.opsgenie.com/v2/alerts`;
-  const apiKey =
-    process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
+  const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
 
   const axiosResponse = await axios({
     url,
@@ -521,9 +519,9 @@ export const evaluateThreshold = async (
               actualValue
             )}% vs evaluation threshold: ${prettyPrintPercentage(
               evaluationThreshold
-            )}% (${
-              deviationAlertMultiplier
-            }x) on chain ${await resolveChainName(metric.metadata.chainId)}`,
+            )}% (${deviationAlertMultiplier}x) on chain ${await resolveChainName(
+              metric.metadata.chainId
+            )}`,
             description: `Beacon Metadata: \n${JSON.stringify(
               metric.metadata
             )}`,
@@ -540,14 +538,10 @@ export const evaluateThreshold = async (
             )
           )}`;
 
-          await go(
-            () =>
-              closeOpsGenieAlertWithAlias(alias, opsGenieConfig),
-            {
-              retries: 3,
-              retryDelayMs: 5_000,
-            }
-          );
+          await go(() => closeOpsGenieAlertWithAlias(alias, opsGenieConfig), {
+            retries: 3,
+            retryDelayMs: 5_000,
+          });
           return null;
         }
       }

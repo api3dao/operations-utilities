@@ -1,7 +1,7 @@
-import { parseUnits } from 'ethers/lib/utils';
-import { EthValue } from "./types";
+import { parseUnits } from "ethers/lib/utils";
 import { OperationsRepository } from "@api3/operations";
 import { readOperationsRepository } from "@api3/operations/dist/utils/read-operations";
+import { EthValue } from "./types";
 import { sendToOpsGenieLowLevel } from "./opsgenie";
 
 export const doTimeout = (interval: number) =>
