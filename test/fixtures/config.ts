@@ -246,6 +246,7 @@ export const buildTelemetryConfig = () => ({
   gitToken: 'abc',
   gitBranch: 'abc',
   opsGenieConfig: {
+    apiKey: 'abc',
     responders: [
       {
         type: 'team',
