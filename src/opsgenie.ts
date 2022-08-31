@@ -1,18 +1,12 @@
-import { TextEncoder } from "util";
-import axios, { AxiosResponse } from "axios";
-import { BigNumber } from "ethers";
-import { keccak256 } from "ethers/lib/utils";
-import { readOperationsRepository } from "@api3/operations/dist/utils/read-operations";
-import {
-  Metric,
-  OpsGenieListAlertsResponse,
-  OpsGenieMessage,
-  OutputMetric,
-  OpsGenieConfig,
-} from "./types";
-import { log, logTrace, debugLog } from "./logging";
-import { go } from "./promises";
-import { doTimeout, resolveChainName } from "./evm";
+import { TextEncoder } from 'util';
+import axios, { AxiosResponse } from 'axios';
+import { BigNumber } from 'ethers';
+import { keccak256 } from 'ethers/lib/utils';
+import { readOperationsRepository } from '@api3/operations/dist/utils/read-operations';
+import { Metric, OpsGenieListAlertsResponse, OpsGenieMessage, OutputMetric, OpsGenieConfig } from './types';
+import { log, logTrace, debugLog } from './logging';
+import { go } from './promises';
+import { doTimeout, resolveChainName } from './evm';
 
 /**
  * We cache open OpsGenie alerts to reduce API calls to not hit API limits prematurely.
@@ -58,7 +52,7 @@ export const checkForOpsGenieApiKey = () => {
   }
 
   opsGenieKeyMissingWarningFirstUseComplete = true;
-  log("No OpsGenie key found in ENVs, this is probably a mistake.");
+  log('No OpsGenie key found in ENVs, this is probably a mistake.');
 
   return true;
 };
@@ -101,10 +95,7 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
     openAlerts = (await listOpenOpsGenieAlerts(opsGenieConfig)) ?? [];
     openAlertsCached = AlertsCachingStatus.DONE;
 
-    await closeOpsGenieAlertWithAlias(
-      "opsgenie-open-alerts-cache-failure",
-      opsGenieConfig
-    );
+    await closeOpsGenieAlertWithAlias('opsgenie-open-alerts-cache-failure', opsGenieConfig);
   } catch (e) {
     openAlertsCached = AlertsCachingStatus.DONE;
 
@@ -112,7 +103,7 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
     await sendToOpsGenieLowLevel(
       {
         message: `Unable to cache open OpsGenie Alerts: ${typedError.message}`,
-        alias: "opsgenie-open-alerts-cache-failure",
+        alias: 'opsgenie-open-alerts-cache-failure',
         description: typedError.stack,
       },
       opsGenieConfig
@@ -126,10 +117,7 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
  * @param alertId
  * @param opsGenieConfig
  */
-export const closeOpsGenieAlertWithId = async (
-  alertId: string,
-  opsGenieConfig: OpsGenieConfig
-) => {
+export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig: OpsGenieConfig) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -140,10 +128,10 @@ export const closeOpsGenieAlertWithId = async (
   axios({
     url,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `GenieKey ${apiKey}`,
     },
-    method: "POST",
+    method: 'POST',
     data: {},
     timeout: 10_000,
   })
@@ -164,15 +152,13 @@ export const closeOpsGenieAlertWithId = async (
  *
  * @param opsGenieConfig
  */
-export const listOpenOpsGenieAlerts = async (
-  opsGenieConfig: OpsGenieConfig
-) => {
+export const listOpenOpsGenieAlerts = async (opsGenieConfig: OpsGenieConfig) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
 
   const params = new URLSearchParams();
-  params.set("query", `status: open`);
+  params.set('query', `status: open`);
 
   const url = `https://api.opsgenie.com/v2/alerts`;
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
@@ -182,24 +168,22 @@ export const listOpenOpsGenieAlerts = async (
       axios({
         url,
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `GenieKey ${apiKey}`,
         },
         params,
-        method: "GET",
+        method: 'GET',
         timeout: 10_000,
       }),
     { timeoutMs: 10_000, retryDelayMs: 5_000, retries: 5 }
   );
 
   if (err || axiosResponse.status !== 200 || !axiosResponse?.data?.data) {
-    log(`Unable to list OpsGenie alerts`, "ERROR", err as Error);
+    log(`Unable to list OpsGenie alerts`, 'ERROR', err as Error);
     return;
   }
 
-  return (axiosResponse.data.data as OpsGenieListAlertsResponse[]).map(
-    ({ id, alias }) => ({ id, alias })
-  );
+  return (axiosResponse.data.data as OpsGenieListAlertsResponse[]).map(({ id, alias }) => ({ id, alias }));
 };
 
 /**
@@ -208,12 +192,9 @@ export const listOpenOpsGenieAlerts = async (
  * @param alias
  * @param opsGenieConfig
  */
-export const getOpenAlertsForAlias = async (
-  alias: string,
-  opsGenieConfig: OpsGenieConfig
-) => {
+export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
   const params = new URLSearchParams();
-  params.set("query", `status: open AND alias: ${alias}`);
+  params.set('query', `status: open AND alias: ${alias}`);
 
   const url = `https://api.opsgenie.com/v2/alerts`;
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
@@ -221,16 +202,16 @@ export const getOpenAlertsForAlias = async (
   const axiosResponse = await axios({
     url,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `GenieKey ${apiKey}`,
     },
     params,
-    method: "GET",
+    method: 'GET',
     timeout: 10_000,
   });
 
   if (axiosResponse.status !== 200) {
-    log(`Unable to list OpsGenie alerts`, "ERROR");
+    log(`Unable to list OpsGenie alerts`, 'ERROR');
     return;
   }
 
@@ -241,10 +222,7 @@ export const getOpenAlertsForAlias = async (
   return axiosResponse.data.data as OpsGenieListAlertsResponse[];
 };
 
-export const closeOpsGenieAlertWithAlias = async (
-  alias: string,
-  opsGenieConfig: OpsGenieConfig
-) => {
+export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -263,21 +241,16 @@ export const closeOpsGenieAlertWithAlias = async (
     )
   );
   promisedResults
-    .filter((result) => result.status === "rejected")
-    .map((rejection) =>
-      log("Alert close promise rejected", "ERROR", rejection)
-    );
+    .filter((result) => result.status === 'rejected')
+    .map((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
 };
 
-export const sendToOpsGenieLowLevel = async (
-  message: OpsGenieMessage,
-  opsGenieConfig: OpsGenieConfig
-) => {
-  log(message.message, "INFO", message);
+export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieConfig: OpsGenieConfig) => {
+  log(message.message, 'INFO', message);
   if (checkForOpsGenieApiKey()) {
     return;
   }
-  const url = "https://api.opsgenie.com/v2/alerts";
+  const url = 'https://api.opsgenie.com/v2/alerts';
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
 
   const payload = JSON.stringify({
@@ -289,10 +262,10 @@ export const sendToOpsGenieLowLevel = async (
     const response = await axios({
       url,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `GenieKey ${apiKey}`,
       },
-      method: "POST",
+      method: 'POST',
       data: payload,
       timeout: 10_000,
     });
@@ -309,14 +282,11 @@ export const sendToOpsGenieLowLevel = async (
       }
     }
   } catch (e) {
-    logTrace("Failed to create OpsGenie alert", "ERROR", e);
+    logTrace('Failed to create OpsGenie alert', 'ERROR', e);
   }
 };
 
-export const sendOpsGenieHeartbeat = async (
-  heartBeatServiceName: string,
-  opsGenieConfig: OpsGenieConfig
-) =>
+export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGenieConfig: OpsGenieConfig) =>
   new Promise<void>((resolve) => {
     if (checkForOpsGenieApiKey()) {
       resolve();
@@ -329,15 +299,15 @@ export const sendOpsGenieHeartbeat = async (
     axios({
       url,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `GenieKey ${apiKey}`,
       },
-      method: "POST",
+      method: 'POST',
       data: {},
       timeout: 10_000,
     })
       .catch((e) => {
-        logTrace("Failed to create OpsGenie heartbeat", e);
+        logTrace('Failed to create OpsGenie heartbeat', e);
         resolve();
       })
       .then((data) => {
@@ -353,24 +323,15 @@ export const makeOpsGenieMessage = (
   unitPostText?: string,
   modifier?: BigNumber
 ): OpsGenieMessage => {
-  const reportedValue = modifier
-    ? BigNumber.from(metric.value).div(modifier)
-    : metric.value;
+  const reportedValue = modifier ? BigNumber.from(metric.value).div(modifier) : metric.value;
   return {
-    message: `${headline} : ${unitPretext ?? ""} ${reportedValue} ${
-      unitPostText ?? ""
-    }`,
-    alias: `${metric.metricName}-${keccak256(
-      new TextEncoder().encode(JSON.stringify(metric.metadata))
-    )}`,
+    message: `${headline} : ${unitPretext ?? ''} ${reportedValue} ${unitPostText ?? ''}`,
+    alias: `${metric.metricName}-${keccak256(new TextEncoder().encode(JSON.stringify(metric.metadata)))}`,
     description: JSON.stringify(metric, null, 2),
   };
 };
 
-export const sendToOpsGenie = async (
-  metric: OutputMetric,
-  opsGenieConfig: OpsGenieConfig
-) => {
+export const sendToOpsGenie = async (metric: OutputMetric, opsGenieConfig: OpsGenieConfig) => {
   const potentialAlarmPayload = (await evaluateThreshold(
     metric,
     makeOpsGenieMessage,
@@ -381,7 +342,7 @@ export const sendToOpsGenie = async (
   }
 
   if (process.env.DEBUG) {
-    log(`ops genie payload`, "INFO", potentialAlarmPayload);
+    log(`ops genie payload`, 'INFO', potentialAlarmPayload);
   }
 
   await sendToOpsGenieLowLevel(potentialAlarmPayload, opsGenieConfig);
@@ -389,23 +350,18 @@ export const sendToOpsGenie = async (
 
 const prettyPrintPercentage = (percentage: BigNumber) => {
   try {
-    return (percentage.div(100000).toNumber() / Math.pow(10, 11)).toPrecision(
-      3
-    );
+    return (percentage.div(100000).toNumber() / Math.pow(10, 11)).toPrecision(3);
   } catch (e) {
-    logTrace("Failed to pretty-print percentage", "ERROR", (e as Error).stack);
+    logTrace('Failed to pretty-print percentage', 'ERROR', (e as Error).stack);
   }
 
-  return "(out of range)";
+  return '(out of range)';
 };
 
-export const calculateEvaluationThreshold = (
-  updateConditionPercentage: number,
-  deviationAlertMultiplier: number
-) =>
-  BigNumber.from(
-    updateConditionPercentage * 10000 * deviationAlertMultiplier
-  ).mul(BigNumber.from(10).pow(BigNumber.from(12)));
+export const calculateEvaluationThreshold = (updateConditionPercentage: number, deviationAlertMultiplier: number) =>
+  BigNumber.from(updateConditionPercentage * 10000 * deviationAlertMultiplier).mul(
+    BigNumber.from(10).pow(BigNumber.from(12))
+  );
 
 // TODO make more generic so it can be used for OpsGenie/other services
 export const evaluateThreshold = async (
@@ -423,11 +379,7 @@ export const evaluateThreshold = async (
   debugLog(JSON.stringify(metric, null, 2));
   const operationsRepository = readOperationsRepository();
   try {
-    const compare = (
-      funcName: "lt" | "gt" | "eq",
-      threshold: number | BigNumber,
-      returnable: any
-    ) => {
+    const compare = (funcName: 'lt' | 'gt' | 'eq', threshold: number | BigNumber, returnable: any) => {
       if (BigNumber.from(metric.value)[funcName](threshold)) {
         return returnable;
       }
@@ -438,22 +390,9 @@ export const evaluateThreshold = async (
     // TODO some values are chain-related (eg. block lateness) - they should be configured as such
     switch (metric.metricName) {
       case Metric.BEACON_OUTSTANDING_REQUEST_LATENESS:
-        return compare(
-          "gt",
-          30,
-          makeMessage(
-            metric,
-            `Beacon Outstanding Request Late`,
-            "Late-ness",
-            "blocks"
-          )
-        );
+        return compare('gt', 30, makeMessage(metric, `Beacon Outstanding Request Late`, 'Late-ness', 'blocks'));
       case Metric.FAILED_FULFILMENTS:
-        return compare(
-          "gt",
-          5,
-          makeMessage(metric, `Failed Fulfilments detected`)
-        );
+        return compare('gt', 5, makeMessage(metric, `Failed Fulfilments detected`));
       case Metric.BACKTEST_DEVIATION: {
         const actualValue = metric.value as BigNumber;
         const evaluationThreshold = calculateEvaluationThreshold(
@@ -466,12 +405,8 @@ export const evaluateThreshold = async (
             headline: `Beacon deviation exceeded: ${metric.metadata.name}`,
             message: `Current value: ${prettyPrintPercentage(
               actualValue
-            )}% vs evaluation threshold: ${prettyPrintPercentage(
-              evaluationThreshold
-            )}% (${deviationAlertMultiplier}x)`,
-            description: `Beacon Metadata: \n${JSON.stringify(
-              metric.metadata
-            )}`,
+            )}% vs evaluation threshold: ${prettyPrintPercentage(evaluationThreshold)}% (${deviationAlertMultiplier}x)`,
+            description: `Beacon Metadata: \n${JSON.stringify(metric.metadata)}`,
             timestamp: metric.metadata.unixtime,
             alias: `${metric.metadata.name}`,
           } as OpsGenieMessage & { timestamp: number };
@@ -482,13 +417,13 @@ export const evaluateThreshold = async (
       case Metric.API_BEACON_DEVIATION: {
         debugLog(JSON.stringify(metric, null, 2));
         if (!metric.value) {
-          console.debug("Metric value undefined", metric);
+          console.debug('Metric value undefined', metric);
           return;
         }
 
         const beaconResponse = metric?.metadata?.beaconResponse;
         if (!beaconResponse) {
-          console.debug("Metric beaconResponse undefined", metric);
+          console.debug('Metric beaconResponse undefined', metric);
           return;
         }
 
@@ -496,49 +431,35 @@ export const evaluateThreshold = async (
           (chain) => chain.id === metric.metadata.chainId
         )?.name;
         if (!chainName) {
-          console.debug("No chain name found", metric);
+          console.debug('No chain name found', metric);
           return;
         }
-        const updateConditionPercentage =
-          metric.metadata.chains[chainName].airseekerConfig.deviationThreshold;
+        const updateConditionPercentage = metric.metadata.chains[chainName].airseekerConfig.deviationThreshold;
 
         const actualValue = metric.value as BigNumber;
 
-        const evaluationThreshold = calculateEvaluationThreshold(
-          updateConditionPercentage,
-          deviationAlertMultiplier
-        );
+        const evaluationThreshold = calculateEvaluationThreshold(updateConditionPercentage, deviationAlertMultiplier);
 
         if (actualValue.gt(evaluationThreshold)) {
-          debugLog(
-            "Inside evaluateThreshold where actualValue greater than evaluationThreshold"
-          );
+          debugLog('Inside evaluateThreshold where actualValue greater than evaluationThreshold');
           return {
-            headline: `Beacon deviation exceeded: ${
-              metric.metadata.name
-            } on ${await resolveChainName(metric.metadata.chainId)}`,
-            priority: "P2",
+            headline: `Beacon deviation exceeded: ${metric.metadata.name} on ${await resolveChainName(
+              metric.metadata.chainId
+            )}`,
+            priority: 'P2',
             message: `Current value: ${prettyPrintPercentage(
               actualValue
             )}% vs evaluation threshold: ${prettyPrintPercentage(
               evaluationThreshold
-            )}% (${deviationAlertMultiplier}x) on chain ${await resolveChainName(
-              metric.metadata.chainId
-            )}`,
-            description: `Beacon Metadata: \n${JSON.stringify(
-              metric.metadata
-            )}`,
+            )}% (${deviationAlertMultiplier}x) on chain ${await resolveChainName(metric.metadata.chainId)}`,
+            description: `Beacon Metadata: \n${JSON.stringify(metric.metadata)}`,
             alias: `${metric.metricName}-dev-tol-${keccak256(
-              new TextEncoder().encode(
-                `${metric.metadata.chainId}${metric.metadata.beaconId}`
-              )
+              new TextEncoder().encode(`${metric.metadata.chainId}${metric.metadata.beaconId}`)
             )}`,
           } as OpsGenieMessage;
         } else {
           const alias = `${metric.metricName}-dev-tol-${keccak256(
-            new TextEncoder().encode(
-              `${metric.metadata.chainId}${metric.metadata.beaconId}`
-            )
+            new TextEncoder().encode(`${metric.metadata.chainId}${metric.metadata.beaconId}`)
           )}`;
 
           await go(() => closeOpsGenieAlertWithAlias(alias, opsGenieConfig), {
@@ -556,9 +477,9 @@ export const evaluateThreshold = async (
     await sendToOpsGenieLowLevel(
       {
         message: `Error in metric evaluation function`,
-        alias: "metric-evaluation-error",
+        alias: 'metric-evaluation-error',
         description: JSON.stringify(e, null, 2),
-        priority: "P2",
+        priority: 'P2',
       },
       opsGenieConfig
     );

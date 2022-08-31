@@ -3,10 +3,7 @@
  */
 export const prettyPrintMemoryUsage = () => {
   const usage = Object.fromEntries(
-    Object.entries(process.memoryUsage()).map(([key, value]) => [
-      key,
-      `${value / 1024 / 1024}`,
-    ])
+    Object.entries(process.memoryUsage()).map(([key, value]) => [key, `${value / 1024 / 1024}`])
   );
 
   debugLog(usage);
@@ -20,18 +17,10 @@ export const debugLog = (...args: any[]) => {
   console.debug(args);
 };
 
-export const log = (
-  message: string,
-  logLevel: "ERROR" | "INFO" = "INFO",
-  ...args: any[]
-) => {
+export const log = (message: string, logLevel: 'ERROR' | 'INFO' = 'INFO', ...args: any[]) => {
   console.log(`[${logLevel}]\t ${message}`, ...args);
 };
 
-export const logTrace = (
-  message: string,
-  logLevel?: "ERROR" | "INFO",
-  ...args: any[]
-) => {
+export const logTrace = (message: string, logLevel?: 'ERROR' | 'INFO', ...args: any[]) => {
   console.trace(`[${logLevel}]\t ${message}`, ...args);
 };

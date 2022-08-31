@@ -1,6 +1,6 @@
 // NOTE: This file is referenced as a pathGroup pattern in .eslintrc (import/order)
 
-import fs from "fs";
+import fs from 'fs';
 
 // Declare originalFs outside of mockReadFileSync to prevent infinite recursion errors in mockReadFileSync.
 const originalFs = fs.readFileSync;
@@ -10,7 +10,7 @@ const originalFs = fs.readFileSync;
  * and otherwise returns the original content.
  */
 export const mockReadFileSync = (filePathSubstr: string, mockValue: string) => {
-  return jest.spyOn(fs, "readFileSync").mockImplementation((...args) => {
+  return jest.spyOn(fs, 'readFileSync').mockImplementation((...args) => {
     const path = args[0].toString();
     if (path.includes(filePathSubstr)) {
       return mockValue;

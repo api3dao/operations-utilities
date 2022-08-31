@@ -1,29 +1,26 @@
 module.exports = {
-  plugins: ["functional"],
+  plugins: ['functional'],
   rules: {
-    "functional/prefer-tacit": [
-      "error",
-      { assumeTypes: { allowFixer: false } },
-    ],
-    "functional/immutable-data": ["error", { assumeTypes: true }],
+    'functional/prefer-tacit': ['error', { assumeTypes: { allowFixer: false } }],
+    'functional/immutable-data': ['error', { assumeTypes: true }],
   },
   overrides: [
     {
       files: [
         // Test files
-        "**/*.test.js",
-        "**/*.test.ts",
-        "**/*.feature.ts",
-        "**/test/**",
+        '**/*.test.js',
+        '**/*.test.ts',
+        '**/*.feature.ts',
+        '**/test/**',
         // Config files
-        "jest.config.base.js",
-        ".eslintrc.js",
-        ".eslintrc.fp.js",
-        "**/*.config.js",
-        "**/*.config.ts",
+        'jest.config.base.js',
+        '.eslintrc.js',
+        '.eslintrc.fp.js',
+        '**/*.config.js',
+        '**/*.config.ts',
       ],
       rules: {
-        "functional/immutable-data": "off",
+        'functional/immutable-data': 'off',
       },
     },
   ],

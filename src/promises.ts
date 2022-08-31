@@ -1,5 +1,5 @@
-import { AttemptOptions, retry, sleep } from "@lifeomic/attempt";
-import { DEFAULT_RETRY_DELAY_MS, DEFAULT_TIMEOUT } from "./constants";
+import { AttemptOptions, retry, sleep } from '@lifeomic/attempt';
+import { DEFAULT_RETRY_DELAY_MS, DEFAULT_TIMEOUT } from './constants';
 
 export type GoResult<T> = [Error, null] | [null, T];
 
@@ -21,21 +21,14 @@ function errorFn(err: Error): [Error, null] {
 }
 
 // Go style async handling
-export function goRaw<T>(
-  fn: () => Promise<T>,
-  options?: PromiseOptions
-): Promise<GoResult<T>> {
+export function goRaw<T>(fn: () => Promise<T>, options?: PromiseOptions): Promise<GoResult<T>> {
   if (options?.retries) {
     const optionsWithRetries = { ...options, retries: options.retries! };
-    return retryOperation(fn, optionsWithRetries)
-      .then(successFn)
-      .catch(errorFn);
+    return retryOperation(fn, optionsWithRetries).then(successFn).catch(errorFn);
   }
 
   if (options?.timeoutMs) {
-    return promiseTimeout(options.timeoutMs, fn())
-      .then(successFn)
-      .catch(errorFn);
+    return promiseTimeout(options.timeoutMs, fn()).then(successFn).catch(errorFn);
   }
 
   return fn().then(successFn).catch(errorFn);
@@ -58,10 +51,7 @@ export function goSync<T>(fn: () => T): GoResult<T> {
   }
 }
 
-export async function retryOperation<T>(
-  operation: () => Promise<T>,
-  options: RetryOptions
-): Promise<T> {
+export async function retryOperation<T>(operation: () => Promise<T>, options: RetryOptions): Promise<T> {
   // We may want to use some of these options in the future
   const attemptOptions: AttemptOptions<any> = {
     delay: options.retryDelayMs || DEFAULT_RETRY_DELAY_MS,
@@ -101,11 +91,7 @@ export function promiseTimeout<T>(ms: number, promise: Promise<T>): Promise<T> {
   return Promise.race([wrappedPromise, timeout]) as Promise<T>;
 }
 
-export function retryOnTimeout<T>(
-  maxTimeoutMs: number,
-  operation: () => Promise<T>,
-  options?: ContinuousRetryOptions
-) {
+export function retryOnTimeout<T>(maxTimeoutMs: number, operation: () => Promise<T>, options?: ContinuousRetryOptions) {
   const promise = new Promise<T>((resolve, reject) => {
     function run(): Promise<any> {
       // If the promise is successful, resolve it and bubble the result up
@@ -113,10 +99,7 @@ export function retryOnTimeout<T>(
         .then(resolve)
         .catch((reason: any) => {
           // Only if the error is a timeout error, do we retry the promise
-          if (
-            reason instanceof Error &&
-            reason.message.includes("Operation timed out")
-          ) {
+          if (reason instanceof Error && reason.message.includes('Operation timed out')) {
             // Delay the new attempt slightly
             return sleep(options?.delay || DEFAULT_RETRY_DELAY_MS)
               .then(run)
@@ -135,10 +118,7 @@ export function retryOnTimeout<T>(
   return promiseTimeout(maxTimeoutMs, promise);
 }
 
-export const timedExecute = async (
-  fn: () => Promise<any>,
-  options?: PromiseOptions
-) => {
+export const timedExecute = async (fn: () => Promise<any>, options?: PromiseOptions) => {
   const operation = async () => {
     const start = new Date().getTime();
     const result = await fn();
@@ -150,17 +130,13 @@ export const timedExecute = async (
   return go(operation, options);
 };
 
-export const settleAndCheckForPromiseRejections = async (
-  promises?: Promise<any>[]
-) => {
+export const settleAndCheckForPromiseRejections = async (promises?: Promise<any>[]) => {
   if (!promises) {
     return;
   }
 
   const settlements = await Promise.allSettled(promises);
-  const rejections = settlements.filter(
-    (settlement) => settlement.status === "rejected"
-  ) as PromiseRejectedResult[];
+  const rejections = settlements.filter((settlement) => settlement.status === 'rejected') as PromiseRejectedResult[];
   rejections.forEach((rejection) => {
     console.error(`Rejection from allSettled: ${rejection.reason}`);
   });

@@ -1,4 +1,4 @@
-import { Metric } from "../src/types";
+import { Metric } from '../src/types';
 
 export const metricTestCases = [
   [
