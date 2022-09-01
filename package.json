@@ -1,9 +1,9 @@
 {
-  "name": "operations-utilities",
-  "version": "0.0.1",
+  "name": "@api3/operations-utilities",
+  "version": "0.0.1-e4bcdbd569e8802192b41f2bb88ed0cca7fc0c7b-1",
   "description": "Utilities common to API3 operations",
-  "main": "dist/index",
-  "types": "dist/types",
+  "main": "./dist/index.js",
+  "types": "./dist/index.js",
   "repository": "git@github.com:api3dao/telemetry.git",
   "author": "Aaron Scheiner <blue@aquarat.co.za>",
   "license": "MIT",
@@ -11,6 +11,11 @@
     "dist"
   ],
   "engine": "^16.17.0",
+  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "yarn run clean && yarn run compile",
     "clean": "rimraf -rf ./dist *.tgz",
