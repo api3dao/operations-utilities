@@ -50,13 +50,17 @@ export const resolveChainId = (chainName: string, operationsRepository?: Operati
   return null;
 };
 
-export const resolveExplorerUrlByName = async (explorerUrls: Record<string, string>, chainName: string) => {
-  const chainId = resolveChainId(chainName);
+export const resolveExplorerUrlByName = async (
+  explorerUrls: Record<string, string>,
+  chainName: string,
+  operationsRepository?: OperationsRepository
+) => {
+  const chainId = resolveChainId(chainName, operationsRepository);
 
   const explorerUrl = explorerUrls[chainId as string];
 
   if (chainId && !explorerUrl) {
-    logTrace(`Unable to find explorer URL for chain: ${resolveChainName(chainId)}`);
+    logTrace(`Unable to find explorer URL for chain: ${resolveChainName(chainId, operationsRepository)}`);
   }
 
   return explorerUrl;
