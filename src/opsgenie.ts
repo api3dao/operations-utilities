@@ -1,5 +1,5 @@
 import { URLSearchParams } from 'url';
-import axiosBase, { AxiosResponse, AxiosStatic } from 'axios';
+import axiosBase, { AxiosResponse } from 'axios';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
@@ -34,7 +34,7 @@ let axios = axiosBase;
  * A setter for the axios instance used by this library. Useful for reliably mocking out Axios for tests.
  * @param axiosArgument
  */
-export const setAxios = (axiosArgument: AxiosStatic) => {
+export const setAxios = (axiosArgument: any) => {
   axios = axiosArgument;
 };
 
