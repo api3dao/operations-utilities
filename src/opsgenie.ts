@@ -1,5 +1,5 @@
 import { URLSearchParams } from 'url';
-import axios, { AxiosResponse } from 'axios';
+import axiosBase, { AxiosResponse, AxiosStatic } from 'axios';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
@@ -24,6 +24,19 @@ enum AlertsCachingStatus {
   IN_PROGRESS,
   DONE,
 }
+
+/**
+ * The Axios instance used by this library - defaults to the imported axios instance.
+ */
+let axios = axiosBase;
+
+/**
+ * A setter for the axios instance used by this library. Useful for reliably mocking out Axios for tests.
+ * @param axiosArgument
+ */
+export const setAxios = (axiosArgument: AxiosStatic) => {
+  axios = axiosArgument;
+};
 
 /**
  * A cache of open alerts. This helps reduce OpsGenie API calls.
