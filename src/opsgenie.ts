@@ -32,6 +32,7 @@ let axios = axiosBase;
 
 /**
  * A setter for the axios instance used by this library. Useful for reliably mocking out Axios for tests.
+ *
  * @param axiosArgument
  */
 export const setAxios = (axiosArgument: any) => {

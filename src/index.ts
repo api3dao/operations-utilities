@@ -1,7 +1,7 @@
-export * as promises from './promises';
-export * as logging from './logging';
+export * from './promises';
+export * from './logging';
 export * from './types';
 export * from './opsgenie';
-export * as evm from './evm';
-export * as jsonFiles from './json-files';
-export * as constants from './constants';
+export * from './evm';
+export * from './json-files';
+export * from './constants';

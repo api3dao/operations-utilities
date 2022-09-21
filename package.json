@@ -1,6 +1,6 @@
 {
   "name": "@api3/operations-utilities",
-  "version": "0.0.1-e4bcdbd569e8802192b41f2bb88ed0cca7fc0c7b-1",
+  "version": "0.0.1",
   "description": "Utilities common to API3 operations",
   "main": "./dist/index.js",
   "types": "./dist/index.js",
