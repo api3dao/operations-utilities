@@ -368,7 +368,7 @@ export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], 
 
   promisedResults
     .filter((result) => result.status === 'rejected')
-    .map((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
+    .forEach((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
 };
 
 // TODO improve wrapping
