@@ -1,12 +1,9 @@
-import { TextEncoder } from 'util';
-import axios, { AxiosResponse } from 'axios';
-import { BigNumber } from 'ethers';
-import { keccak256 } from 'ethers/lib/utils';
-import { readOperationsRepository } from '@api3/operations/dist/utils/read-operations';
-import { Metric, OpsGenieListAlertsResponse, OpsGenieMessage, OutputMetric, OpsGenieConfig } from './types';
+import { URLSearchParams } from 'url';
+import axiosBase, { AxiosResponse } from 'axios';
+import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
-import { doTimeout, resolveChainName } from './evm';
+import { doTimeout } from './evm';
 
 /**
  * We cache open OpsGenie alerts to reduce API calls to not hit API limits prematurely.
@@ -27,6 +24,20 @@ enum AlertsCachingStatus {
   IN_PROGRESS,
   DONE,
 }
+
+/**
+ * The Axios instance used by this library - defaults to the imported axios instance.
+ */
+let axios = axiosBase;
+
+/**
+ * A setter for the axios instance used by this library. Useful for reliably mocking out Axios for tests.
+ *
+ * @param axiosArgument
+ */
+export const setAxios = (axiosArgument: any) => {
+  axios = axiosArgument;
+};
 
 /**
  * A cache of open alerts. This helps reduce OpsGenie API calls.
@@ -74,12 +85,14 @@ export const resetOpenAlerts = () => {
 /**
  * Cache open OpsGenie alerts to reduce API calls.
  *
- * @param opsGenieConfig
+ * @param globalConfig
+ * @param force
  */
-export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
+export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig, force = false) => {
   switch (openAlertsCached) {
     case AlertsCachingStatus.DONE:
-      return;
+      if (!force) return;
+      break;
     case AlertsCachingStatus.IN_PROGRESS:
       while (openAlertsCached === AlertsCachingStatus.IN_PROGRESS) {
         await doTimeout(100);
@@ -87,6 +100,7 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
       return;
     case AlertsCachingStatus.NONE:
       break;
+    default:
   }
 
   openAlertsCached = AlertsCachingStatus.IN_PROGRESS;
@@ -110,6 +124,9 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig) => {
     );
   }
 };
+
+export const getOpsGenieApiKey = (opsGenieConfig: OpsGenieConfig) =>
+  process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
 
 /**
  * Close an OpsGenie alert using it's alertId
@@ -145,6 +162,12 @@ export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig: 
         }
       }
     });
+};
+
+export const getOpenAlerts = () => openAlerts;
+
+export const setOpenAlerts = (openAlertsToSet: OpsGenieListAlertsResponse[] | undefined) => {
+  openAlerts = openAlertsToSet;
 };
 
 /**
@@ -316,172 +339,60 @@ export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGen
       });
   });
 
-export const makeOpsGenieMessage = (
-  metric: OutputMetric,
-  headline: string,
-  unitPretext?: string,
-  unitPostText?: string,
-  modifier?: BigNumber
-): OpsGenieMessage => {
-  const reportedValue = modifier ? BigNumber.from(metric.value).div(modifier) : metric.value;
-  return {
-    message: `${headline} : ${unitPretext ?? ''} ${reportedValue} ${unitPostText ?? ''}`,
-    alias: `${metric.metricName}-${keccak256(new TextEncoder().encode(JSON.stringify(metric.metadata)))}`,
-    description: JSON.stringify(metric, null, 2),
-  };
-};
-
-export const sendToOpsGenie = async (metric: OutputMetric, opsGenieConfig: OpsGenieConfig) => {
-  const potentialAlarmPayload = (await evaluateThreshold(
-    metric,
-    makeOpsGenieMessage,
-    opsGenieConfig
-  )) as OpsGenieMessage;
-  if (!potentialAlarmPayload) {
+export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+  if (checkForOpsGenieApiKey()) {
     return;
   }
 
-  if (process.env.DEBUG) {
-    log(`ops genie payload`, 'INFO', potentialAlarmPayload);
+  await cacheOpenAlerts(opsGenieConfig);
+  const cachedAlertId = openAlerts?.filter((alert) => alert.alias === alias);
+  if (cachedAlertId) {
+    return cachedAlertId;
   }
 
-  await sendToOpsGenieLowLevel(potentialAlarmPayload, opsGenieConfig);
+  await cacheOpenAlerts(opsGenieConfig, true);
+
+  return openAlerts?.filter((alert) => alert.alias === alias);
 };
 
-const prettyPrintPercentage = (percentage: BigNumber) => {
-  try {
-    return (percentage.div(100000).toNumber() / Math.pow(10, 11)).toPrecision(3);
-  } catch (e) {
-    logTrace('Failed to pretty-print percentage', 'ERROR', (e as Error).stack);
+export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], opsGenieConfig: OpsGenieConfig) => {
+  if (checkForOpsGenieApiKey()) {
+    return;
   }
 
-  return '(out of range)';
-};
-
-export const calculateEvaluationThreshold = (updateConditionPercentage: number, deviationAlertMultiplier: number) =>
-  BigNumber.from(updateConditionPercentage * 10000 * deviationAlertMultiplier).mul(
-    BigNumber.from(10).pow(BigNumber.from(12))
+  const promisedResults = await Promise.allSettled(
+    alerts!.map(async (alertRecord: OpsGenieListAlertsResponse) =>
+      closeOpsGenieAlertWithId(alertRecord.id, opsGenieConfig)
+    )
   );
 
-// TODO make more generic so it can be used for OpsGenie/other services
-export const evaluateThreshold = async (
-  metric: OutputMetric,
-  makeMessage: (
-    metric: OutputMetric,
-    headline: string,
-    unitPretext?: string,
-    unitPostText?: string,
-    modifier?: BigNumber
-  ) => {},
-  opsGenieConfig: OpsGenieConfig,
-  deviationAlertMultiplier = 2
-) => {
-  debugLog(JSON.stringify(metric, null, 2));
-  const operationsRepository = readOperationsRepository();
-  try {
-    const compare = (funcName: 'lt' | 'gt' | 'eq', threshold: number | BigNumber, returnable: any) => {
-      if (BigNumber.from(metric.value)[funcName](threshold)) {
-        return returnable;
-      }
-      return null;
-    };
-
-    // TODO These should be made configurable in master config
-    // TODO some values are chain-related (eg. block lateness) - they should be configured as such
-    switch (metric.metricName) {
-      case Metric.BEACON_OUTSTANDING_REQUEST_LATENESS:
-        return compare('gt', 30, makeMessage(metric, `Beacon Outstanding Request Late`, 'Late-ness', 'blocks'));
-      case Metric.FAILED_FULFILMENTS:
-        return compare('gt', 5, makeMessage(metric, `Failed Fulfilments detected`));
-      case Metric.BACKTEST_DEVIATION: {
-        const actualValue = metric.value as BigNumber;
-        const evaluationThreshold = calculateEvaluationThreshold(
-          metric.metadata.deviationPercentage,
-          metric.metadata.deviationAlertMultiplier
-        );
-
-        if (actualValue.gt(evaluationThreshold)) {
-          return {
-            headline: `Beacon deviation exceeded: ${metric.metadata.name}`,
-            message: `Current value: ${prettyPrintPercentage(
-              actualValue
-            )}% vs evaluation threshold: ${prettyPrintPercentage(evaluationThreshold)}% (${deviationAlertMultiplier}x)`,
-            description: `Beacon Metadata: \n${JSON.stringify(metric.metadata)}`,
-            timestamp: metric.metadata.unixtime,
-            alias: `${metric.metadata.name}`,
-          } as OpsGenieMessage & { timestamp: number };
-        } else {
-          return null;
-        }
-      }
-      case Metric.API_BEACON_DEVIATION: {
-        debugLog(JSON.stringify(metric, null, 2));
-        if (!metric.value) {
-          console.debug('Metric value undefined', metric);
-          return;
-        }
-
-        const beaconResponse = metric?.metadata?.beaconResponse;
-        if (!beaconResponse) {
-          console.debug('Metric beaconResponse undefined', metric);
-          return;
-        }
-
-        const chainName = Object.values(operationsRepository.chains).find(
-          (chain) => chain.id === metric.metadata.chainId
-        )?.name;
-        if (!chainName) {
-          console.debug('No chain name found', metric);
-          return;
-        }
-        const updateConditionPercentage = metric.metadata.chains[chainName].airseekerConfig.deviationThreshold;
-
-        const actualValue = metric.value as BigNumber;
-
-        const evaluationThreshold = calculateEvaluationThreshold(updateConditionPercentage, deviationAlertMultiplier);
-
-        if (actualValue.gt(evaluationThreshold)) {
-          debugLog('Inside evaluateThreshold where actualValue greater than evaluationThreshold');
-          return {
-            headline: `Beacon deviation exceeded: ${metric.metadata.name} on ${await resolveChainName(
-              metric.metadata.chainId
-            )}`,
-            priority: 'P2',
-            message: `Current value: ${prettyPrintPercentage(
-              actualValue
-            )}% vs evaluation threshold: ${prettyPrintPercentage(
-              evaluationThreshold
-            )}% (${deviationAlertMultiplier}x) on chain ${await resolveChainName(metric.metadata.chainId)}`,
-            description: `Beacon Metadata: \n${JSON.stringify(metric.metadata)}`,
-            alias: `${metric.metricName}-dev-tol-${keccak256(
-              new TextEncoder().encode(`${metric.metadata.chainId}${metric.metadata.beaconId}`)
-            )}`,
-          } as OpsGenieMessage;
-        } else {
-          const alias = `${metric.metricName}-dev-tol-${keccak256(
-            new TextEncoder().encode(`${metric.metadata.chainId}${metric.metadata.beaconId}`)
-          )}`;
-
-          await go(() => closeOpsGenieAlertWithAlias(alias, opsGenieConfig), {
-            retries: 3,
-            retryDelayMs: 5_000,
-          });
-          return null;
-        }
-      }
-      default:
-        return null;
-    }
-  } catch (e) {
-    // We won't wait for the promise to resolve
-    await sendToOpsGenieLowLevel(
-      {
-        message: `Error in metric evaluation function`,
-        alias: 'metric-evaluation-error',
-        description: JSON.stringify(e, null, 2),
-        priority: 'P2',
-      },
-      opsGenieConfig
-    );
-  }
+  promisedResults
+    .filter((result) => result.status === 'rejected')
+    .forEach((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
 };
+
+// TODO improve wrapping
+export const updateAlertDescription = (description: string, alertId: string, opsGenieConfig: OpsGenieConfig) =>
+  axios({
+    url: `https://api.opsgenie.com/v2/alerts/${alertId}/description`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `GenieKey ${getOpsGenieApiKey(opsGenieConfig)}`,
+    },
+    method: 'PUT',
+    data: {
+      description,
+    },
+    timeout: 9_000,
+  });
+
+export const getAlertContents = (alertId: string, opsGenieConfig: OpsGenieConfig) =>
+  axios({
+    url: `https://api.opsgenie.com/v2/alerts/${alertId}?identifierType=id`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `GenieKey ${getOpsGenieApiKey(opsGenieConfig)}`,
+    },
+    method: 'GET',
+    timeout: 10_000,
+  });
