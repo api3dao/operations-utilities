@@ -28,8 +28,8 @@
     "lint": "yarn run lint:eslint && yarn prettier:check",
     "lint:eslint": "eslint . --ext .js,.ts",
     "lint:eslint:fix": "eslint . --ext .js,.ts --fix",
-    "test": "jest --selectProjects unit",
-    "test:e2e": "SILENCE_LOGGER=true jest --selectProjects e2e --runInBand",
+    "test": "jest --config jest.config.js --selectProjects unit",
+    "test:e2e": "jest --selectProjects e2e --runInBand",
     "prepare": "husky install"
   },
   "devDependencies": {
