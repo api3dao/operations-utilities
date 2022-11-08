@@ -3,6 +3,8 @@ import { chainNames } from '@api3/airnode-protocol-v1/deployments/references.jso
 import { EthValue } from './types';
 import { log } from './logging';
 
+const chainReferences = chainNames as Record<string, string>;
+
 export const doTimeout = (interval: number) => new Promise((resolve) => setTimeout(() => resolve(null), interval));
 
 export const convertEtherValue = (input: EthValue) => parseUnits(`${input.amount}`, input.units);
@@ -15,9 +17,8 @@ export const exit = (code = 0) => {
 export const isCloudFunction = () => process.env.LAMBDA_TASK_ROOT || process.env.FUNCTION_TARGET;
 
 export const resolveChainName = (chainId: string) => {
-  const chainName = Object.entries(chainNames).find(([key]) => key === chainId);
-  if (chainName && chainName[1]) {
-    return chainName[1];
+  if (chainReferences[chainId]) {
+    return chainReferences[chainId];
   }
 
   log('Invalid or unknown chain', 'INFO', {
