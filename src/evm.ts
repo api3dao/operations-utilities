@@ -1,8 +1,7 @@
 import { parseUnits } from 'ethers/lib/utils';
-import { OperationsRepository } from '@api3/operations';
-import { readOperationsRepository } from '@api3/operations/dist/utils/read-operations';
+import { chainNames } from '@api3/airnode-protocol-v1/deployments/references.json';
 import { EthValue } from './types';
-import { log, logTrace } from './logging';
+import { log } from './logging';
 
 export const doTimeout = (interval: number) => new Promise((resolve) => setTimeout(() => resolve(null), interval));
 
@@ -15,13 +14,10 @@ export const exit = (code = 0) => {
 
 export const isCloudFunction = () => process.env.LAMBDA_TASK_ROOT || process.env.FUNCTION_TARGET;
 
-export const resolveChainName = (chainId: string, operationsRepository?: OperationsRepository) => {
-  const operations = operationsRepository ?? readOperationsRepository();
-
-  const chainName = Object.values(operations.chains).find((chain) => chain.id === chainId)?.name;
-
-  if (chainName) {
-    return chainName;
+export const resolveChainName = (chainId: string) => {
+  const chainName = Object.entries(chainNames).find(([key]) => key === chainId);
+  if (chainName && chainName[1]) {
+    return chainName[1];
   }
 
   log('Invalid or unknown chain', 'INFO', {
@@ -29,16 +25,12 @@ export const resolveChainName = (chainId: string, operationsRepository?: Operati
     description: `Please check the config and/or resolveChainName function: ${chainId}`,
     priority: 'P2',
   });
-  return null;
 };
 
-export const resolveChainId = (chainName: string, operationsRepository?: OperationsRepository) => {
-  const operations = operationsRepository ?? readOperationsRepository();
-
-  const chainId = Object.values(operations.chains).find((chain) => chain.name === chainName)?.id;
-
-  if (chainId) {
-    return chainId;
+export const resolveChainId = (chainName: string) => {
+  const chainId = Object.entries(chainNames).find(([_key, value]) => value === chainName);
+  if (chainId && chainId[0]) {
+    return chainId[0];
   }
 
   log('Invalid or unknown chain', 'INFO', {
@@ -47,21 +39,4 @@ export const resolveChainId = (chainName: string, operationsRepository?: Operati
     description: `Please check the config and/or resolveChainId function: ${chainName}`,
     priority: 'P2',
   });
-  return null;
-};
-
-export const resolveExplorerUrlByName = async (
-  explorerUrls: Record<string, string>,
-  chainName: string,
-  operationsRepository?: OperationsRepository
-) => {
-  const chainId = resolveChainId(chainName, operationsRepository);
-
-  const explorerUrl = explorerUrls[chainId as string];
-
-  if (chainId && !explorerUrl) {
-    logTrace(`Unable to find explorer URL for chain: ${resolveChainName(chainId, operationsRepository)}`);
-  }
-
-  return explorerUrl;
 };
