@@ -1,17 +1,9 @@
-import { WalletType } from '@api3/operations';
 import { BigNumber } from 'ethers';
 import { NonceManager } from '@ethersproject/experimental';
 
 export interface EthValue {
   amount: number;
   units: 'wei' | 'kwei' | 'mwei' | 'gwei' | 'szabo' | 'finney' | 'ether';
-}
-
-export interface WalletStatus {
-  address: string;
-  balance: BigNumber;
-  walletType: WalletType;
-  chainName: string;
 }
 
 export type ExtendedWalletWithMetadata = {
