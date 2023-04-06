@@ -4,7 +4,7 @@ describe('it tests the evm module', () => {
   it('resolves a valid chain ID to a name', () => {
     const resolvedChainName = resolveChainName('1');
 
-    expect(resolvedChainName).toEqual('mainnet');
+    expect(resolvedChainName).toEqual('ethereum');
   });
 
   it('resolves an unknown chain ID to a name', () => {
@@ -20,7 +20,7 @@ describe('it tests the evm module', () => {
   });
 
   it('resolves a valid chain name to an ID', () => {
-    const resolvedChainId = resolveChainId('mainnet');
+    const resolvedChainId = resolveChainId('ethereum');
 
     expect(resolvedChainId).toEqual('1');
   });
