@@ -1,6 +1,7 @@
 module.exports = {
   plugins: ['functional'],
   rules: {
+    // eslint-plugin-functional
     'functional/prefer-tacit': ['error', { assumeTypes: { allowFixer: false } }],
     'functional/immutable-data': ['error', { assumeTypes: true }],
   },

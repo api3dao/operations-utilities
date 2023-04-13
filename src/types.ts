@@ -11,7 +11,7 @@ export type ExtendedWalletWithMetadata = {
   providerXpub: string;
   sponsor: string;
   address?: string | undefined;
-  walletType: 'Provider' | 'API3' | 'Provider-Sponsor' | 'API3-Sponsor';
+  walletType: 'Provider' | 'API3' | 'Provider-Sponsor' | 'API3-Sponsor' | 'Airseeker' | 'BYOG' | 'BYOGSponsor';
 };
 
 export interface TelemetryChainOptions {

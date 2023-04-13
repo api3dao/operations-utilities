@@ -1,5 +1,6 @@
 import { URLSearchParams } from 'url';
 import axiosBase, { AxiosResponse } from 'axios';
+import Bottleneck from 'bottleneck';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
@@ -396,3 +397,11 @@ export const getAlertContents = (alertId: string, opsGenieConfig: OpsGenieConfig
     method: 'GET',
     timeout: 10_000,
   });
+
+export const getOpsGenieLimiter = (options: Bottleneck.ConstructorOptions = { maxConcurrent: 1, minTime: 500 }) => {
+  const opsGenieLimiter = new Bottleneck(options);
+  const limitedCloseOpsGenieAlertWithAlias = opsGenieLimiter.wrap(closeOpsGenieAlertWithAlias);
+  const limitedSendToOpsGenieLowLevel = opsGenieLimiter.wrap(sendToOpsGenieLowLevel);
+
+  return { opsGenieLimiter, limitedCloseOpsGenieAlertWithAlias, limitedSendToOpsGenieLowLevel };
+};
