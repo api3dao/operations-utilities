@@ -1,10 +1,15 @@
 import { URLSearchParams } from 'url';
+import * as process from 'process';
+import { TextEncoder } from 'util';
 import axiosBase, { AxiosResponse } from 'axios';
 import Bottleneck from 'bottleneck';
+import { keccak256 } from 'ethers/lib/utils';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
 import { doTimeout } from './evm';
+
+const DEFAULT_OPSGENIE_CONFIG: OpsGenieConfig = { apiKey: process.env.OPSGENIE_API_LEY!, responders: [] };
 
 /**
  * We cache open OpsGenie alerts to reduce API calls to not hit API limits prematurely.
@@ -69,6 +74,9 @@ export const checkForOpsGenieApiKey = () => {
   return true;
 };
 
+const encoder = new TextEncoder();
+export const generateHash = (input: string) => keccak256(encoder.encode(input));
+
 /**
  * Resets the cache during longer running operations
  */
@@ -118,7 +126,7 @@ export const cacheOpenAlerts = async (opsGenieConfig: OpsGenieConfig, force = fa
     await sendToOpsGenieLowLevel(
       {
         message: `Unable to cache open OpsGenie Alerts: ${typedError.message}`,
-        alias: 'opsgenie-open-alerts-cache-failure',
+        alias: generateHash('opsgenie-open-alerts-cache-failure'),
         description: typedError.stack,
       },
       opsGenieConfig
@@ -135,7 +143,7 @@ export const getOpsGenieApiKey = (opsGenieConfig: OpsGenieConfig) =>
  * @param alertId
  * @param opsGenieConfig
  */
-export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -176,7 +184,7 @@ export const setOpenAlerts = (openAlertsToSet: OpsGenieListAlertsResponse[] | un
  *
  * @param opsGenieConfig
  */
-export const listOpenOpsGenieAlerts = async (opsGenieConfig: OpsGenieConfig) => {
+export const listOpenOpsGenieAlerts = async (opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -216,9 +224,9 @@ export const listOpenOpsGenieAlerts = async (opsGenieConfig: OpsGenieConfig) => 
  * @param alias
  * @param opsGenieConfig
  */
-export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   const params = new URLSearchParams();
-  params.set('query', `status: open AND alias: ${alias}`);
+  params.set('query', `status: open AND alias: ${generateHash(alias)}`);
 
   const url = `https://api.opsgenie.com/v2/alerts`;
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
@@ -246,18 +254,18 @@ export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig: OpsGe
   return axiosResponse.data.data as OpsGenieListAlertsResponse[];
 };
 
-export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
 
+  const hashedAlias = generateHash(alias);
+
   await cacheOpenAlerts(opsGenieConfig);
-  const cachedAlertId = openAlerts?.filter((alert) => alert.alias === alias);
+  const cachedAlertId = openAlerts?.filter((alert) => alert.alias === hashedAlias);
   if (!cachedAlertId) {
     return;
   }
-
-  //const alertId = cachedAlertId ? [cachedAlertId] : await getOpenAlertsForAlias(alias, globalConfig);
 
   const promisedResults = await Promise.allSettled(
     cachedAlertId!.map(async (alertRecord: OpsGenieListAlertsResponse) =>
@@ -269,7 +277,7 @@ export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig:
     .map((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
 };
 
-export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieConfig: OpsGenieConfig) => {
+export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   log(message.message, 'INFO', message);
   if (checkForOpsGenieApiKey()) {
     return;
@@ -277,8 +285,11 @@ export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieC
   const url = 'https://api.opsgenie.com/v2/alerts';
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
 
+  const hashedAlias = generateHash(message.alias);
+
   const payload = JSON.stringify({
     ...message,
+    alias: hashedAlias,
     responders: opsGenieConfig.responders,
   });
 
@@ -300,7 +311,7 @@ export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieC
           ...openAlerts,
           {
             id: response?.data?.requestId,
-            alias: message.alias,
+            alias: hashedAlias,
           },
         ];
       }
@@ -310,7 +321,7 @@ export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieC
   }
 };
 
-export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGenieConfig: OpsGenieConfig) =>
+export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) =>
   new Promise<void>((resolve) => {
     if (checkForOpsGenieApiKey()) {
       resolve();
@@ -340,13 +351,15 @@ export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGen
       });
   });
 
-export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
 
+  const hashedAlias = generateHash(alias);
+
   await cacheOpenAlerts(opsGenieConfig);
-  const cachedAlertId = openAlerts?.filter((alert) => alert.alias === alias);
+  const cachedAlertId = openAlerts?.filter((alert) => alert.alias === hashedAlias);
   if (cachedAlertId) {
     return cachedAlertId;
   }
@@ -356,7 +369,10 @@ export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig:
   return openAlerts?.filter((alert) => alert.alias === alias);
 };
 
-export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlerts = async (
+  alerts: OpsGenieListAlertsResponse[],
+  opsGenieConfig = DEFAULT_OPSGENIE_CONFIG
+) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -373,7 +389,11 @@ export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], 
 };
 
 // TODO improve wrapping
-export const updateAlertDescription = (description: string, alertId: string, opsGenieConfig: OpsGenieConfig) =>
+export const updateAlertDescription = (
+  description: string,
+  alertId: string,
+  opsGenieConfig = DEFAULT_OPSGENIE_CONFIG
+) =>
   axios({
     url: `https://api.opsgenie.com/v2/alerts/${alertId}/description`,
     headers: {
@@ -387,7 +407,7 @@ export const updateAlertDescription = (description: string, alertId: string, ops
     timeout: 9_000,
   });
 
-export const getAlertContents = (alertId: string, opsGenieConfig: OpsGenieConfig) =>
+export const getAlertContents = (alertId: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) =>
   axios({
     url: `https://api.opsgenie.com/v2/alerts/${alertId}?identifierType=id`,
     headers: {
