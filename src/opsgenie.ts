@@ -412,8 +412,10 @@ export const getAlertContents = (alertId: string, opsGenieConfig = DEFAULT_OPSGE
 
 export const getOpsGenieLimiter = (options: Bottleneck.ConstructorOptions = { maxConcurrent: 1, minTime: 500 }) => {
   const opsGenieLimiter = new Bottleneck(options);
-  const limitedCloseOpsGenieAlertWithAlias = opsGenieLimiter.wrap(closeOpsGenieAlertWithAlias);
-  const limitedSendToOpsGenieLowLevel = opsGenieLimiter.wrap(sendToOpsGenieLowLevel);
+  const limitedCloseOpsGenieAlertWithAlias = (alias: string, config?: OpsGenieConfig) =>
+    opsGenieLimiter.schedule(() => closeOpsGenieAlertWithAlias(alias, config));
+  const limitedSendToOpsGenieLowLevel = (message: OpsGenieMessage, config?: OpsGenieConfig) =>
+    opsGenieLimiter.schedule(() => sendToOpsGenieLowLevel(message, config));
 
   return { opsGenieLimiter, limitedCloseOpsGenieAlertWithAlias, limitedSendToOpsGenieLowLevel };
 };
