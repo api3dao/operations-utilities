@@ -1,10 +1,13 @@
 import { URLSearchParams } from 'url';
+import * as process from 'process';
 import axiosBase, { AxiosResponse } from 'axios';
 import Bottleneck from 'bottleneck';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
 import { go } from './promises';
 import { doTimeout } from './evm';
+
+const DEFAULT_OPSGENIE_CONFIG: OpsGenieConfig = { apiKey: process.env.OPSGENIE_API_LEY!, responders: [] };
 
 /**
  * We cache open OpsGenie alerts to reduce API calls to not hit API limits prematurely.
@@ -135,7 +138,7 @@ export const getOpsGenieApiKey = (opsGenieConfig: OpsGenieConfig) =>
  * @param alertId
  * @param opsGenieConfig
  */
-export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlertWithId = async (alertId: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -176,7 +179,7 @@ export const setOpenAlerts = (openAlertsToSet: OpsGenieListAlertsResponse[] | un
  *
  * @param opsGenieConfig
  */
-export const listOpenOpsGenieAlerts = async (opsGenieConfig: OpsGenieConfig) => {
+export const listOpenOpsGenieAlerts = async (opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -216,7 +219,7 @@ export const listOpenOpsGenieAlerts = async (opsGenieConfig: OpsGenieConfig) => 
  * @param alias
  * @param opsGenieConfig
  */
-export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   const params = new URLSearchParams();
   params.set('query', `status: open AND alias: ${alias}`);
 
@@ -246,7 +249,7 @@ export const getOpenAlertsForAlias = async (alias: string, opsGenieConfig: OpsGe
   return axiosResponse.data.data as OpsGenieListAlertsResponse[];
 };
 
-export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -256,8 +259,6 @@ export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig:
   if (!cachedAlertId) {
     return;
   }
-
-  //const alertId = cachedAlertId ? [cachedAlertId] : await getOpenAlertsForAlias(alias, globalConfig);
 
   const promisedResults = await Promise.allSettled(
     cachedAlertId!.map(async (alertRecord: OpsGenieListAlertsResponse) =>
@@ -269,13 +270,17 @@ export const closeOpsGenieAlertWithAlias = async (alias: string, opsGenieConfig:
     .map((rejection) => log('Alert close promise rejected', 'ERROR', rejection));
 };
 
-export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieConfig: OpsGenieConfig) => {
+export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   log(message.message, 'INFO', message);
   if (checkForOpsGenieApiKey()) {
     return;
   }
   const url = 'https://api.opsgenie.com/v2/alerts';
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
+
+  if (message.message.length > 128) {
+    console.warn(`Opsgenie message field is too long and will be cropped by OpsGenie. Alias: ${message.alias}`);
+  }
 
   const payload = JSON.stringify({
     ...message,
@@ -310,7 +315,7 @@ export const sendToOpsGenieLowLevel = async (message: OpsGenieMessage, opsGenieC
   }
 };
 
-export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGenieConfig: OpsGenieConfig) =>
+export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) =>
   new Promise<void>((resolve) => {
     if (checkForOpsGenieApiKey()) {
       resolve();
@@ -340,7 +345,7 @@ export const sendOpsGenieHeartbeat = async (heartBeatServiceName: string, opsGen
       });
   });
 
-export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig: OpsGenieConfig) => {
+export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -356,7 +361,10 @@ export const getOpsGenieAlertIdWithAlias = async (alias: string, opsGenieConfig:
   return openAlerts?.filter((alert) => alert.alias === alias);
 };
 
-export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], opsGenieConfig: OpsGenieConfig) => {
+export const closeOpsGenieAlerts = async (
+  alerts: OpsGenieListAlertsResponse[],
+  opsGenieConfig = DEFAULT_OPSGENIE_CONFIG
+) => {
   if (checkForOpsGenieApiKey()) {
     return;
   }
@@ -373,7 +381,11 @@ export const closeOpsGenieAlerts = async (alerts: OpsGenieListAlertsResponse[], 
 };
 
 // TODO improve wrapping
-export const updateAlertDescription = (description: string, alertId: string, opsGenieConfig: OpsGenieConfig) =>
+export const updateAlertDescription = (
+  description: string,
+  alertId: string,
+  opsGenieConfig = DEFAULT_OPSGENIE_CONFIG
+) =>
   axios({
     url: `https://api.opsgenie.com/v2/alerts/${alertId}/description`,
     headers: {
@@ -387,7 +399,7 @@ export const updateAlertDescription = (description: string, alertId: string, ops
     timeout: 9_000,
   });
 
-export const getAlertContents = (alertId: string, opsGenieConfig: OpsGenieConfig) =>
+export const getAlertContents = (alertId: string, opsGenieConfig = DEFAULT_OPSGENIE_CONFIG) =>
   axios({
     url: `https://api.opsgenie.com/v2/alerts/${alertId}?identifierType=id`,
     headers: {
@@ -400,8 +412,10 @@ export const getAlertContents = (alertId: string, opsGenieConfig: OpsGenieConfig
 
 export const getOpsGenieLimiter = (options: Bottleneck.ConstructorOptions = { maxConcurrent: 1, minTime: 500 }) => {
   const opsGenieLimiter = new Bottleneck(options);
-  const limitedCloseOpsGenieAlertWithAlias = opsGenieLimiter.wrap(closeOpsGenieAlertWithAlias);
-  const limitedSendToOpsGenieLowLevel = opsGenieLimiter.wrap(sendToOpsGenieLowLevel);
+  const limitedCloseOpsGenieAlertWithAlias = (alias: string, config?: OpsGenieConfig) =>
+    opsGenieLimiter.schedule(() => closeOpsGenieAlertWithAlias(alias, config));
+  const limitedSendToOpsGenieLowLevel = (message: OpsGenieMessage, config?: OpsGenieConfig) =>
+    opsGenieLimiter.schedule(() => sendToOpsGenieLowLevel(message, config));
 
   return { opsGenieLimiter, limitedCloseOpsGenieAlertWithAlias, limitedSendToOpsGenieLowLevel };
 };
