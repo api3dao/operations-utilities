@@ -2,9 +2,9 @@ import { URLSearchParams } from 'url';
 import * as process from 'process';
 import axiosBase, { AxiosResponse } from 'axios';
 import Bottleneck from 'bottleneck';
+import { go } from '@api3/promise-utils';
 import { OpsGenieListAlertsResponse, OpsGenieMessage, OpsGenieConfig } from './types';
 import { log, logTrace, debugLog } from './logging';
-import { go } from './promises';
 import { doTimeout } from './evm';
 
 const DEFAULT_OPSGENIE_CONFIG: OpsGenieConfig = { apiKey: process.env.OPSGENIE_API_LEY!, responders: [] };
@@ -190,7 +190,7 @@ export const listOpenOpsGenieAlerts = async (opsGenieConfig = DEFAULT_OPSGENIE_C
   const url = `https://api.opsgenie.com/v2/alerts`;
   const apiKey = process.env.OPSGENIE_API_KEY ?? opsGenieConfig.apiKey;
 
-  const [err, axiosResponse] = await go(
+  const goAxios = await go(
     () =>
       axios({
         url,
@@ -202,15 +202,15 @@ export const listOpenOpsGenieAlerts = async (opsGenieConfig = DEFAULT_OPSGENIE_C
         method: 'GET',
         timeout: 10_000,
       }),
-    { timeoutMs: 10_000, retryDelayMs: 5_000, retries: 5 }
+    { totalTimeoutMs: 10_000, delay: { delayMs: 5_000, type: 'static' }, retries: 5 }
   );
 
-  if (err || axiosResponse.status !== 200 || !axiosResponse?.data?.data) {
-    log(`Unable to list OpsGenie alerts`, 'ERROR', err as Error);
+  if (!goAxios.success || goAxios.data.status !== 200 || !goAxios?.data?.data) {
+    log(`Unable to list OpsGenie alerts`, 'ERROR', goAxios.error as Error);
     return;
   }
 
-  return (axiosResponse.data.data as OpsGenieListAlertsResponse[]).map(({ id, alias }) => ({ id, alias }));
+  return (goAxios.data.data as OpsGenieListAlertsResponse[]).map(({ id, alias }) => ({ id, alias }));
 };
 
 /**
