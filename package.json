@@ -52,8 +52,8 @@
   },
   "dependencies": {
     "@api3/airnode-protocol-v1": "^2.2.1",
+    "@api3/promise-utils": "^0.4.0",
     "@ethersproject/experimental": "^5.7.0",
-    "@lifeomic/attempt": "^3.0.3",
     "axios": "^1.3.5",
     "bottleneck": "^2.19.5",
     "ethers": "^5.7.0",
